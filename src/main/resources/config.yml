@@ -1,5 +1,8 @@
 apiKey: "7e8d670fa90e4642a2ecb2197b4f3f92"
 mongoUri: "mongodb://localhost:27017/weatherdb"
+database: "weatherdb"
+citiesCollection: "cities"
+apiBase: "https://api.weatherstack.com/current"
 swagger:
   resourcePackage: "com.himanshu.weather.resources"
   title: "Weather API"

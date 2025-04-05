@@ -31,12 +31,18 @@ public class WeatherResource {
     private final Client client;
     private final ObjectMapper mapper;
     private final MongoClient mongoClient;
+    private final String database;
+    private final String citiesCollection;
+    private final String apiBase;
 
-    public WeatherResource(String apiKey, ObjectMapper mapper, MongoClient mongoClient) {
+    public WeatherResource(String apiKey, ObjectMapper mapper, MongoClient mongoClient, String database, String citiesCollection, String apiBase) {
         this.apiKey = apiKey;
         this.client = ClientBuilder.newClient();
         this.mapper = mapper;
         this.mongoClient = mongoClient;
+        this.database = database;
+        this.citiesCollection = citiesCollection;
+        this.apiBase = apiBase;
     }
 
     @GET
@@ -49,15 +55,15 @@ public class WeatherResource {
     })
     public Response getWeather(@PathParam("city") String city) {
         try {
-            WebTarget target = client.target("https://api.weatherstack.com/current")
+            WebTarget target = client.target(apiBase)
                     .queryParam("query", city)
                     .queryParam("access_key", apiKey);
 
             String result = target.request().get(String.class);
             WeatherResponse weatherResponse = mapper.readValue(result, WeatherResponse.class);
 
-            MongoDatabase database = mongoClient.getDatabase("weatherdb");
-            MongoCollection<Document> collection = database.getCollection("cities");
+            MongoDatabase database = mongoClient.getDatabase(this.database);
+            MongoCollection<Document> collection = database.getCollection(citiesCollection);
             LocationDTO location = weatherResponse.getLocation();
             Map<String, Object> locationMap = mapper.convertValue(location, Map.class);
             Document doc = new Document(locationMap);

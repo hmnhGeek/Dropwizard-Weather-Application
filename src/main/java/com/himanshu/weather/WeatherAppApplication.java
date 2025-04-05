@@ -28,6 +28,6 @@ public class WeatherAppApplication extends Application<WeatherAppConfiguration> 
     public void run(WeatherAppConfiguration config, Environment environment) {
         MongoProvider mongoProvider = new MongoProvider(config.getMongoUri());
         MongoClient mongoClient = mongoProvider.getClient();
-        environment.jersey().register(new WeatherResource(config.getApiKey(), environment.getObjectMapper(), mongoClient));
+        environment.jersey().register(new WeatherResource(config.getApiKey(), environment.getObjectMapper(), mongoClient, config.getDatabase(), config.getCitiesCollection(), config.getApiBase()));
     }
 }
