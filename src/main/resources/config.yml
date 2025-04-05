@@ -1,1 +1,10 @@
-apiKey: ""
+apiKey: "7e8d670fa90e4642a2ecb2197b4f3f92"
+swagger:
+  resourcePackage: "com.himanshu.weather.resources"
+  title: "Weather API"
+  description: "Weather API Documentation"
+  version: "1.0.0"
+  schemes:
+    - "http"
+  host: "localhost:8080"
+  contact: "Himanshu (himanshu@example.com)"  # Change contact to a string
