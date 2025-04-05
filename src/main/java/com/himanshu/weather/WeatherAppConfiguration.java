@@ -9,6 +9,9 @@ public class WeatherAppConfiguration extends Configuration {
     @JsonProperty
     private String apiKey;
 
+    @JsonProperty
+    private String mongoUri;
+
     @JsonProperty("swagger")
     private SwaggerBundleConfiguration swagger = new SwaggerBundleConfiguration();
 
@@ -19,4 +22,13 @@ public class WeatherAppConfiguration extends Configuration {
     public SwaggerBundleConfiguration getSwagger() {
         return swagger;
     }
+
+    public String getMongoUri() {
+        return mongoUri;
+    }
+
+    public void setMongoUri(String mongoUri) {
+        this.mongoUri = mongoUri;
+    }
+
 }
