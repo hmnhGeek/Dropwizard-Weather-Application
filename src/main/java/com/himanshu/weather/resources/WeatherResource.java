@@ -35,7 +35,7 @@ public class WeatherResource {
     @Path("/{city}")
     @ApiOperation(value = "Get the weather of a city.")
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "Successful retrieval of weather data", response = WeatherResponse.class),
+            @ApiResponse(code = 200, message = "Successful retrieval of weather data"),
             @ApiResponse(code = 400, message = "Bad request"),
             @ApiResponse(code = 404, message = "City not found")
     })
