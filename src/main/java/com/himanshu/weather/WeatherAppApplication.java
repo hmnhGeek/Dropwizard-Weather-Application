@@ -24,6 +24,6 @@ public class WeatherAppApplication extends Application<WeatherAppConfiguration> 
 
     @Override
     public void run(WeatherAppConfiguration config, Environment environment) {
-        environment.jersey().register(new WeatherResource(config.getApiKey()));
+        environment.jersey().register(new WeatherResource(config.getApiKey(), environment.getObjectMapper()));
     }
 }
