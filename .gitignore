@@ -1,1 +1,15 @@
+# Maven
 target/
+dependency-reduced-pom.xml
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
