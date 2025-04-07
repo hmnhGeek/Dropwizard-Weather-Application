@@ -1,0 +1,8 @@
+type Query {
+    coordinates(city: String!): Coordinates
+}
+
+type Coordinates {
+    lat: String
+    lon: String
+}

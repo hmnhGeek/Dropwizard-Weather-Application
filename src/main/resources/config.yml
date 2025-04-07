@@ -1,4 +1,4 @@
-apiKey: ""
+apiKey: "54ef5c5a8c557468f611bdc2f809d175"
 mongoUri: "mongodb://localhost:27017/weatherdb"
 database: "weatherdb"
 citiesCollection: "cities"
