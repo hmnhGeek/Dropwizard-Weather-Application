@@ -1,5 +1,7 @@
 package com.himanshu.weather;
 
+import com.himanshu.weather.mongo.MongoProvider;
+import com.mongodb.client.MongoClient;
 import io.dropwizard.Application;
 import com.himanshu.weather.resources.WeatherResource;
 import io.dropwizard.setup.Bootstrap;
@@ -24,6 +26,8 @@ public class WeatherAppApplication extends Application<WeatherAppConfiguration> 
 
     @Override
     public void run(WeatherAppConfiguration config, Environment environment) {
-        environment.jersey().register(new WeatherResource(config.getApiKey()));
+        MongoProvider mongoProvider = new MongoProvider(config.getMongoUri());
+        MongoClient mongoClient = mongoProvider.getClient();
+        environment.jersey().register(new WeatherResource(config.getApiKey(), environment.getObjectMapper(), mongoClient, config.getDatabase(), config.getCitiesCollection(), config.getApiBase()));
     }
 }
