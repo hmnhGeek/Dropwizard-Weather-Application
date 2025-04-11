@@ -17,7 +17,7 @@ public class GraphQLFactory {
         TypeDefinitionRegistry typeDefinitionRegistry = new SchemaParser().parse(reader);
         CityQuery queryResolver = new CityQuery(mongoClient);
         RuntimeWiring wiring = RuntimeWiring.newRuntimeWiring()
-                .type("Query", builder -> builder.dataFetcher("getCityInformation", queryResolver.getCoordinatesByCityFetcher()))
+                .type("Query", builder -> builder.dataFetcher("getCityInformation", queryResolver.getCityByCityFetcher()))
                 .build();
         GraphQLSchema schema = new SchemaGenerator().makeExecutableSchema(typeDefinitionRegistry, wiring);
         return GraphQL.newGraphQL(schema).build();

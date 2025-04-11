@@ -15,7 +15,7 @@ public class CityQuery {
         this.mongoClient = mongoClient;
     }
 
-    public DataFetcher<City> getCoordinatesByCityFetcher() {
+    public DataFetcher<City> getCityByCityFetcher() {
         return new DataFetcher<City>() {
             @Override
             public City get(DataFetchingEnvironment environment) throws Exception {
