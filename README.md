@@ -225,5 +225,3 @@ Content-Type: application/json
 - [Dropwizard](https://www.dropwizard.io/)
 - [Lombok](https://projectlombok.org/)
 - [GraphQL Spec](https://spec.graphql.org/)
-
----
