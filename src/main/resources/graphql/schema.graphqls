@@ -1,8 +1,13 @@
 type Query {
-    coordinates(city: String!): Coordinates
+    getCityInformation(city: String!): City
 }
 
-type Coordinates {
+type City {
+    name: String
+    country: String
+    region: String
     lat: String
     lon: String
+    timezoneId: String
+    utcOffset: String
 }
