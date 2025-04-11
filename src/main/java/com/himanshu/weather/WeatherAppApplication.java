@@ -1,5 +1,6 @@
 package com.himanshu.weather;
 
+import com.himanshu.weather.graphql.resources.GraphQLResource;
 import com.himanshu.weather.mongo.MongoProvider;
 import com.mongodb.client.MongoClient;
 import io.dropwizard.Application;
@@ -29,5 +30,10 @@ public class WeatherAppApplication extends Application<WeatherAppConfiguration> 
         MongoProvider mongoProvider = new MongoProvider(config.getMongoUri());
         MongoClient mongoClient = mongoProvider.getClient();
         environment.jersey().register(new WeatherResource(config.getApiKey(), environment.getObjectMapper(), mongoClient, config.getDatabase(), config.getCitiesCollection(), config.getApiBase()));
+
+        // Register GraphQL resource
+        environment.jersey().register(new GraphQLResource(
+                GraphQLFactory.buildGraphQL(mongoClient)
+        ));
     }
 }
