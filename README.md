@@ -1,169 +1,229 @@
+# 🔗 Integrating GraphQL into a Dropwizard Project (Java)
 
-# 🌦️ WeatherApp – Dropwizard Microservice with MongoDB Integration
-
-**WeatherApp** is a lightweight Java microservice built using [Dropwizard](https://www.dropwizard.io/en/latest/). It fetches real-time weather information from the [Weatherstack API](https://weatherstack.com/) and persists location data into a MongoDB collection for future use.
-
----
-
-## 📁 Project Structure
-
-```
-com.himanshu.weather
-├── WeatherAppApplication.java       // Main application class
-├── WeatherAppConfiguration.java     // YAML-backed configuration class
-├── resources/
-│   └── WeatherResource.java         // REST endpoint for /weather/{city}
-├── DTOs/
-│   └── WeatherResponse/             // DTOs for deserializing API responses
-└── config.yml                       // Configuration file (API key, Mongo URI, etc.)
-```
+This tutorial demonstrates how to integrate a GraphQL API layer into a [Dropwizard](https://www.dropwizard.io/) Java project, backed by a MongoDB data source. It walks through project structure, the technologies used, and explains the **"why"** behind each component — blending core Java, Dropwizard, GraphQL-Java, and MongoDB.
 
 ---
 
-## 🔄 JSON Mapping using Jackson's `ObjectMapper`
+## 📆 Tech Stack & Libraries
 
-### 🧠 What is ObjectMapper?
+- **Dropwizard**: Lightweight Java framework for building REST APIs.
+- **GraphQL-Java**: Java implementation of Facebook's GraphQL spec.
+- **MongoDB**: Document-based NoSQL database.
+- **Lombok**: To reduce boilerplate (getters/setters/constructors).
+- **JAX-RS** (`javax.ws.rs`): To expose HTTP endpoints.
+- **GraphQL Schema Language**: Declarative syntax for GraphQL types.
 
-Dropwizard uses Jackson under the hood to serialize/deserialize JSON. `ObjectMapper` is the central tool used to:
+---
 
-- Convert external JSON responses into Java objects
-- Convert Java objects into JSON for API responses
-- Transform objects into `Map<String, Object>` for storage or manipulation
+## 🧱 Project Structure
 
-### 📥 Example Use Case
+```
+src/main/java/com/yourcompany/yourapp/
+│
+├── WeatherAppApplication.java         # Main Dropwizard application class
+├── GraphQLFactory.java                # Schema + wiring factory for GraphQL
+│
+├── graphql/
+│   ├── DTOs/
+│   │   └── CoordinatesDTO.java        # POJO model returned by GraphQL
+│   ├── queries/
+│   │   └── CoordinatesQuery.java      # Data fetcher for GraphQL query
+│   └── resources/
+│       └── GraphQLResource.java       # JAX-RS resource for handling GraphQL queries
+```
 
-After calling the Weatherstack API, the raw JSON response is converted into a strongly-typed Java object:
+Also add a `resources/graphql/schema.graphqls` file containing your GraphQL schema.
 
+---
+
+## ✅ Step-by-step Integration
+
+### 1. **Define GraphQL Schema**
+
+**Location**: `src/main/resources/graphql/schema.graphqls`
+
+```graphql
+type Query {
+  coordinates(city: String!): Coordinates
+}
+
+type Coordinates {
+  lat: String
+  lon: String
+}
+```
+
+**Why?**
+- GraphQL is *schema-first*. This defines the structure of the API before implementing the logic.
+- The schema drives type safety and auto-documentation.
+
+---
+
+### 2. **Create DTO for the Return Type**
+
+**File**: `CoordinatesDTO.java`
 ```java
-WeatherResponse weatherResponse = mapper.readValue(jsonResponse, WeatherResponse.class);
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class CoordinatesDTO {
+    private String lat;
+    private String lon;
+}
 ```
 
-This avoids manual JSON parsing and results in cleaner, safer, and easier-to-maintain code.
+**Why?**
+- A simple POJO (Plain Old Java Object) representing the GraphQL type.
+- Uses **Lombok annotations** to auto-generate constructors and getters/setters.
+- Ensures a clean separation between transport and internal models.
 
-### 🔁 Customizing the Mapper (Optional)
+---
 
-Dropwizard provides a shared instance of `ObjectMapper` which you can further customize in the application’s `run()` method:
+### 3. **Write the Query Resolver (Fetcher)**
 
+**File**: `CoordinatesQuery.java`
+```java
+public class CoordinatesQuery {
+    private final MongoClient mongoClient;
+
+    public CoordinatesQuery(MongoClient mongoClient) {
+        this.mongoClient = mongoClient;
+    }
+
+    public DataFetcher<CoordinatesDTO> getCoordinatesByCityFetcher() {
+        return environment -> {
+            String city = environment.getArgument("city");
+            Document doc = mongoClient.getDatabase("weatherdb")
+                                      .getCollection("cities")
+                                      .find(new Document("name", city))
+                                      .first();
+            return doc == null ? null : new CoordinatesDTO(doc.getString("lat"), doc.getString("lon"));
+        };
+    }
+}
+```
+
+**Why?**
+- A **GraphQL DataFetcher** acts like a controller method in REST.
+- This encapsulates MongoDB data retrieval.
+- Uses **functional interfaces** and **lambda expressions**, an advanced Java feature introduced in Java 8.
+
+---
+
+### 4. **Build Schema + Resolver Wiring**
+
+**File**: `GraphQLFactory.java`
+```java
+public class GraphQLFactory {
+    public static GraphQL buildGraphQL(MongoClient mongoClient) {
+        InputStreamReader reader = new InputStreamReader(
+            GraphQLFactory.class.getResourceAsStream("/graphql/schema.graphqls")
+        );
+
+        TypeDefinitionRegistry typeRegistry = new SchemaParser().parse(reader);
+        CoordinatesQuery coordinatesQuery = new CoordinatesQuery(mongoClient);
+
+        RuntimeWiring wiring = RuntimeWiring.newRuntimeWiring()
+            .type("Query", builder -> builder.dataFetcher("coordinates", coordinatesQuery.getCoordinatesByCityFetcher()))
+            .build();
+
+        GraphQLSchema schema = new SchemaGenerator().makeExecutableSchema(typeRegistry, wiring);
+        return GraphQL.newGraphQL(schema).build();
+    }
+}
+```
+
+**Why?**
+- Responsible for **assembling the GraphQL schema and resolvers**.
+- Uses **GraphQL-Java's SchemaParser/SchemaGenerator**.
+- Advanced Java: Leverages builder pattern, I/O streams, and classpath resource loading.
+
+---
+
+### 5. **Expose GraphQL Endpoint**
+
+**File**: `GraphQLResource.java`
+```java
+@Path("/graphql")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+public class GraphQLResource {
+    private final GraphQL graphQL;
+
+    public GraphQLResource(GraphQL graphQL) {
+        this.graphQL = graphQL;
+    }
+
+    @POST
+    public Map<String, Object> query(Map<String, Object> request) {
+        String query = (String) request.get("query");
+        ExecutionInput input = ExecutionInput.newExecutionInput().query(query).build();
+        ExecutionResult result = graphQL.execute(input);
+        return result.toSpecification();
+    }
+}
+```
+
+**Why?**
+- This is the **HTTP entry point** for all GraphQL queries.
+- Uses **JAX-RS annotations** to map it as a RESTful resource (`/graphql`).
+- Converts GraphQL response to a `Map<String, Object>` (dynamic JSON-like structure).
+
+---
+
+### 6. **Register in Dropwizard App**
+
+**File**: `WeatherAppApplication.java`
 ```java
 @Override
-public void run(WeatherAppConfiguration config, Environment env) {
-    ObjectMapper mapper = env.getObjectMapper();
-    mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+public void run(WeatherAppConfiguration config, Environment environment) {
+    MongoProvider mongoProvider = new MongoProvider(config.getMongoUri());
+    MongoClient mongoClient = mongoProvider.getClient();
+
+    // Existing REST resource
+    environment.jersey().register(new WeatherResource(...));
+
+    // Register GraphQL
+    GraphQL graphQL = GraphQLFactory.buildGraphQL(mongoClient);
+    environment.jersey().register(new GraphQLResource(graphQL));
 }
 ```
 
----
-
-## 🍃 MongoDB Integration
-
-### 🧩 Why MongoDB?
-
-MongoDB is a document-oriented NoSQL database that's ideal for storing flexible data structures like location info fetched from weather APIs. This project uses the official MongoDB Java driver (no ODM like Morphia) for full control.
-
-### 🔌 Dependencies
-
-Add the MongoDB driver in your `pom.xml`:
-
-```xml
-<dependency>
-  <groupId>org.mongodb</groupId>
-  <artifactId>mongodb-driver-sync</artifactId>
-  <version>4.11.1</version>
-</dependency>
-```
-
-(Note: Do not remove or change existing dependencies. This addition works alongside Dropwizard.)
-
-### 🛠️ Connecting to MongoDB
-
-In your `WeatherAppApplication.java`:
-
-```java
-MongoClient mongoClient = MongoClients.create(config.getMongoUri());
-```
-
-Inject this client into your `WeatherResource`:
-
-```java
-public WeatherResource(String apiKey, ObjectMapper mapper, MongoClient mongoClient) {
-    this.apiKey = apiKey;
-    this.mapper = mapper;
-    this.mongoClient = mongoClient;
-}
-```
-
-### 🗃️ Saving Location Data to MongoDB
-
-Once you get the `WeatherResponse`, you can extract the `LocationDTO` and store it like this:
-
-#### Option 1: Manual Document Creation
-
-```java
-Document doc = new Document("name", location.getName())
-    .append("country", location.getCountry())
-    .append("region", location.getRegion())
-    .append("lat", location.getLat())
-    .append("lon", location.getLon())
-    .append("timezoneId", location.getTimezoneId())
-    .append("localtime", location.getLocaltime())
-    .append("localtimeEpoch", location.getLocaltimeEpoch())
-    .append("utcOffset", location.getUtcOffset());
-
-collection.insertOne(doc);
-```
-
-#### Option 2: Object to Map Conversion using ObjectMapper
-
-```java
-Map<String, Object> locationMap = mapper.convertValue(location, Map.class);
-Document doc = new Document(locationMap);
-collection.insertOne(doc);
-```
-
-💡 This approach leverages the power of `ObjectMapper` to avoid repetitive code when converting DTOs to MongoDB documents.
-
-### 📌 Collection & Database Info
-
-- Database: `weatherdb`
-- Collection: `cities`
-- Data Stored: Only the `location` object from the WeatherResponse
+**Why?**
+- This is the central bootstrapping class of any Dropwizard app.
+- Registers both **GraphQL** and **REST** endpoints with the Jersey environment.
+- Advanced Java: uses **Dependency Injection** manually without any DI framework.
 
 ---
 
-## 🧪 Sample API Call
-
-```bash
-curl http://localhost:8080/weather/Delhi
-```
-
-Returns:
+## 📢 Sample GraphQL Query (Postman or Playground)
 
 ```json
+POST /graphql
+Content-Type: application/json
 {
-  "location": {
-    "name": "Delhi",
-    "country": "India",
-    ...
-  },
-  "current": {
-    "temperature": 32,
-    ...
-  }
+  "query": "{ coordinates(city: \"Haridwar\") { lat lon } }"
 }
 ```
 
-And simultaneously stores the `location` portion into MongoDB under the `cities` collection.
+**Why nested `{ lat lon }`?**
+- In GraphQL, you explicitly specify which fields to fetch. This is a **feature**, not a limitation.
 
 ---
 
-## 🚀 Future Enhancements
+## ✨ Final Notes
 
-- Add ODM integration (Morphia or Spring Data-like annotations)
-- Add indexing and search capabilities to MongoDB
-- Expose a `/history` endpoint to fetch past locations from MongoDB
+- You now have a fully functional GraphQL endpoint alongside your Dropwizard REST API.
+- It's modular, testable, and scalable.
+- Want multiple queries? Add more `DataFetchers` and expand the schema.
 
 ---
 
-## 🧾 License
+## 🔍 References
 
-This project is for educational purposes only. Built with ❤️ by Himanshu.
+- [GraphQL Java](https://www.graphql-java.com/)
+- [Dropwizard](https://www.dropwizard.io/)
+- [Lombok](https://projectlombok.org/)
+- [GraphQL Spec](https://spec.graphql.org/)
+
+---
