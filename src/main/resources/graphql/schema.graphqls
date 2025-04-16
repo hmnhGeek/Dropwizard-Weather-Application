@@ -1,0 +1,13 @@
+type Query {
+    getCityInformation(city: String!): City
+}
+
+type City {
+    name: String
+    country: String
+    region: String
+    lat: String
+    lon: String
+    timezoneId: String
+    utcOffset: String
+}
